@@ -49,7 +49,8 @@ dependencies {
     // 👇 --- AJOUTE CES LIGNES ICI --- 👇
 
     // 🧠 SDK Google Gemini (Pour le GenerativeModel, Chat et Function Calling)
-    implementation("com.google.ai.client.generativeai:generativeai:0.9.0")
+    implementation("com.google.mediapipe:tasks-genai:0.10.14")
+
 
 
     // ⚡ Coroutines & Lifecycle (Pour exécuter les requêtes réseau sans bloquer l'interface)

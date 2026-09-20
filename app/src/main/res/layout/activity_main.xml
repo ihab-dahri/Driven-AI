@@ -3,43 +3,48 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:padding="16dp">
+    android:padding="16dp"
+    android:background="?android:attr/colorBackground">
 
-    <!-- La zone où le texte de la discussion va s'afficher -->
-    <ScrollView
+    <!-- Zone de discussion (Chat) -->
+    <TextView
+        android:id="@+id/tvChat"
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="1">
+        android:layout_weight="1"
+        android:background="#1A808080"
+        android:padding="16dp"
+        android:textSize="18sp"
+        android:textColor="?android:attr/textColorPrimary"
+        android:lineSpacingExtra="4dp"
+        android:scrollbars="vertical"
+        android:text="Bienvenue dans Driven AI\n" />
 
-        <TextView
-            android:id="@+id/tvChat"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:textSize="16sp"
-            android:textColor="@android:color/black" />
-    </ScrollView>
-
-    <!-- La barre du bas avec le champ de texte et le bouton -->
+    <!-- Zone de saisie et bouton -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:paddingTop="16dp">
+        android:layout_marginTop="12dp">
 
         <EditText
             android:id="@+id/etQuestion"
             android:layout_width="0dp"
-            android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:hint="Ex: Allume la lumière..."
-            android:inputType="text" />
+            android:layout_height="wrap_content"
+            android:hint="Demande d'allumer le flash..."
+            android:textSize="18sp"
+            android:textColor="?android:attr/textColorPrimary"
+            android:padding="12dp"
+            android:backgroundTint="@color/black" />
 
         <Button
             android:id="@+id/btnSend"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Envoyer"
-            android:layout_marginStart="8dp"/>
+            android:textSize="16sp"
+            android:layout_marginStart="8dp" />
     </LinearLayout>
 
 </LinearLayout>

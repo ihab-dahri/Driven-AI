@@ -1,4 +1,5 @@
 package com.example.driven_ai
+
 import android.annotation.SuppressLint
 import android.content.Context
 import android.hardware.camera2.CameraManager
@@ -9,24 +10,21 @@ import android.widget.EditText
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
-import com.google.ai.client.generativeai.Chat
-import com.google.ai.client.generativeai.GenerativeModel
-import com.google.ai.client.generativeai.type.FunctionResponsePart
-import com.google.ai.client.generativeai.type.Schema
-import com.google.ai.client.generativeai.type.Tool
-import com.google.ai.client.generativeai.type.content
-import com.google.ai.client.generativeai.type.defineFunction
+import com.google.mediapipe.tasks.genai.llminference.LlmInference
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import org.json.JSONObject
+import java.io.File
 
 class MainActivity : AppCompatActivity() {
 
-    private lateinit var chatSession: Chat
+    private lateinit var llmInference: LlmInference
     private lateinit var tvChat: TextView
     private lateinit var cameraManager: CameraManager
     private var cameraId: String? = null
+
+    // Chemin du modèle poussé manuellement sur le téléphone via Device Explorer
+    private lateinit var modelPath: String
 
     @SuppressLint("MissingInflatedId")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -37,118 +35,112 @@ class MainActivity : AppCompatActivity() {
         val btnSend = findViewById<Button>(R.id.btnSend)
         tvChat = findViewById(R.id.tvChat)
 
-        // 1. Initialisation du matériel (Le Flash)
+        // 1. Initialisation Matérielle
         cameraManager = getSystemService(Context.CAMERA_SERVICE) as CameraManager
         try {
             cameraId = cameraManager.cameraIdList[0]
         } catch (e: Exception) {
-            appendMessage("Erreur caméra : Impossible de trouver le flash.")
+            appendMessage("⚠️ Erreur : Flash introuvable.")
         }
 
-        // 2. Déclaration des outils (Fonctions)
-        val flashlightFunction = defineFunction(
-            name = "set_flashlight",
-            description = "Allume ou éteint la lampe torche (flash) du téléphone.",
-            parameters = listOf(
-                Schema.bool(
-                    name = "is_on",
-                    description = "Mettre à true pour allumer, false pour éteindre."
-                )
-            )
-        )
+        // 2. Chargement du Modèle Local (Asynchrone car très lourd)
 
-        val batteryFunction = defineFunction(
-            name = "get_battery_level",
-            description = "Récupère le niveau de batterie actuel du téléphone de l'utilisateur en pourcentage."
-        )
+        appendMessage("⏳ Chargement du modèle IA en RAM (cela peut prendre quelques secondes)...")
+        btnSend.isEnabled = false
 
-        // On intègre les deux fonctions dans la boîte à outils de l'Agent
-        val aiTools = Tool(listOf(flashlightFunction, batteryFunction))
+        modelPath = File(getExternalFilesDir(null), "gemma.bin").absolutePath
 
-        // 3. Initialisation du modèle
-        val generativeModel = GenerativeModel(
-            modelName = "gemini-3-flash",
-            apiKey = , // ⚠️ N'oublie pas de remettre ta clé API
-            tools = listOf(aiTools)
-        )
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                if (!File(modelPath).exists()) {
+                    throw Exception("Fichier modèle introuvable dans $modelPath")
+                }
 
-        chatSession = generativeModel.startChat()
-        appendMessage("🤖 Agent IA prêt. Tu peux me demander d'allumer la lumière ou vérifier la batterie !")
+                val options = LlmInference.LlmInferenceOptions.builder()
+                    .setModelPath(modelPath)
+                    .setMaxTokens(512)
+                    .build()
 
-        // 4. Gestion du bouton d'envoi
+                llmInference = LlmInference.createFromOptions(this@MainActivity, options)
+
+                withContext(Dispatchers.Main) {
+                    appendMessage("✅ Agent IA 100% Hors-Ligne Prêt !")
+                    btnSend.isEnabled = true
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    appendMessage("❌ Erreur de chargement : ${e.message}")
+                }
+            }
+        }
+
+        // 3. Gestion de l'envoi
         btnSend.setOnClickListener {
             val userText = etQuestion.text.toString()
             if (userText.isNotBlank()) {
                 appendMessage("👤 Toi : $userText")
                 etQuestion.text.clear()
-                sendCommandToAgent(userText)
+                sendCommandToLocalAgent(userText)
             }
         }
     }
 
-    private fun sendCommandToAgent(prompt: String) {
+    private fun sendCommandToLocalAgent(prompt: String) {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
-                val response = chatSession.sendMessage(prompt)
-                val functionCall = response.functionCall
+                // Création d'un "System Prompt" pour forcer le comportement de l'IA locale
+                val systemPrompt = """
+                    Tu es l'assistant du téléphone. Analyse la demande de l'utilisateur.
+                    Si l'utilisateur demande d'allumer la lumière ou la lampe torche, réponds EXACTEMENT : <FLASH_ON>
+                    Si l'utilisateur demande d'éteindre la lumière, réponds EXACTEMENT : <FLASH_OFF>
+                    Si l'utilisateur demande le niveau de batterie, réponds EXACTEMENT : <BATTERY>
+                    Sinon, réponds normalement et brièvement à la question.
+                    
+                    Demande de l'utilisateur : $prompt
+                    Réponse :
+                """.trimIndent()
 
-                if (functionCall != null) {
-                    // CAS 1 : L'IA veut contrôler la lampe torche
-                    if (functionCall.name == "set_flashlight") {
-                        val turnOn = functionCall.args["is_on"] as? Boolean ?: false
-                        toggleRealFlashlight(turnOn)
+                // Génération de la réponse (calcul 100% sur le CPU/GPU du téléphone)
+                val response = llmInference.generateResponse(systemPrompt)
 
-                        val resultJson = JSONObject().apply {
-                            put("status", "success")
-                            put("hardware_state", if (turnOn) "on" else "off")
-                        }
-
-                        val finalResponse = chatSession.sendMessage(
-                            content {
-                                part(FunctionResponsePart("set_flashlight", resultJson))
-                            }
-                        )
-
-                        withContext(Dispatchers.Main) {
-                            appendMessage("🤖 Agent : ${finalResponse.text}")
-                        }
-                    }
-                    // CAS 2 : L'IA veut lire le niveau de batterie
-                    else if (functionCall.name == "get_battery_level") {
-                        val level = getBatteryLevel()
-
-                        val resultJson = JSONObject().apply {
-                            put("battery_level", level)
-                            put("unit", "%")
-                        }
-
-                        val finalResponse = chatSession.sendMessage(
-                            content {
-                                part(FunctionResponsePart("get_battery_level", resultJson))
-                            }
-                        )
-
-                        withContext(Dispatchers.Main) {
-                            appendMessage("🤖 Agent : ${finalResponse.text}")
-                        }
-                    }
-                } else {
-                    // CAS 3 : Réponse texte classique
-                    withContext(Dispatchers.Main) {
-                        appendMessage("🤖 IA : ${response.text}")
-                    }
+                withContext(Dispatchers.Main) {
+                    processLocalFunctionCalling(response)
                 }
-
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
-                    appendMessage("❌ Erreur : ${e.message}")
+                    appendMessage("❌ Erreur d'inférence : ${e.message}")
                 }
             }
         }
     }
 
-    // --- FONCTIONS MATÉRIELLES (KOTLIN) ---
+    // 4. Analyse syntaxique (Notre version "maison" du Function Calling)
+    // 4. Analyse syntaxique plus robuste
+    private fun processLocalFunctionCalling(aiResponse: String) {
+        // On met tout en minuscules pour éviter les problèmes de majuscules
+        val responseClean = aiResponse.lowercase()
 
+        when {
+            responseClean.contains("flash_on") || responseClean.contains("flash on") -> {
+                toggleRealFlashlight(true)
+                appendMessage("🤖 Agent : J'ai allumé la lampe torche 🔦 (Exécution locale).")
+            }
+            responseClean.contains("flash_off") || responseClean.contains("flash off") -> {
+                toggleRealFlashlight(false)
+                appendMessage("🤖 Agent : J'ai éteint la lampe torche 🌑 (Exécution locale).")
+            }
+            responseClean.contains("battery") || responseClean.contains("batterie") -> {
+                val level = getBatteryLevel()
+                appendMessage("🤖 Agent : La batterie est actuellement à $level%. 🔋")
+            }
+            else -> {
+                // Réponse conversationnelle classique
+                appendMessage("🤖 Agent : $aiResponse")
+            }
+        }
+    }
+
+    // --- FONCTIONS MATÉRIELLES (Inchangées) ---
     private fun toggleRealFlashlight(state: Boolean) {
         try {
             cameraId?.let { id ->
@@ -163,8 +155,6 @@ class MainActivity : AppCompatActivity() {
         val batteryManager = getSystemService(Context.BATTERY_SERVICE) as BatteryManager
         return batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
     }
-
-    // --- UTILITAIRE ---
 
     private fun appendMessage(text: String) {
         tvChat.append("\n$text\n")
