@@ -6,25 +6,32 @@
     android:padding="16dp"
     android:background="?android:attr/colorBackground">
 
-    <!-- Zone de discussion (Chat) -->
-    <TextView
-        android:id="@+id/tvChat"
+    <!-- VRAIE zone de défilement infaillible -->
+    <ScrollView
+        android:id="@+id/chatScrollView"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
         android:background="#1A808080"
-        android:padding="16dp"
-        android:textSize="18sp"
-        android:textColor="?android:attr/textColorPrimary"
-        android:lineSpacingExtra="4dp"
-        android:scrollbars="vertical"
-        android:text="Bienvenue dans Driven AI\n" />
+        android:fillViewport="true">
 
-    <!-- Zone de saisie et bouton -->
+        <TextView
+            android:id="@+id/tvChat"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:padding="16dp"
+            android:textSize="18sp"
+            android:textColor="?android:attr/textColorPrimary"
+            android:lineSpacingExtra="4dp"
+            android:text="Bienvenue dans Driven AI\n" />
+    </ScrollView>
+
+    <!-- Zone de saisie et boutons -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
+        android:gravity="center_vertical"
         android:layout_marginTop="12dp">
 
         <EditText
@@ -32,11 +39,19 @@
             android:layout_width="0dp"
             android:layout_weight="1"
             android:layout_height="wrap_content"
-            android:hint="Demande d'allumer le flash..."
+            android:hint="Demande vocale ou texte..."
             android:textSize="18sp"
             android:textColor="?android:attr/textColorPrimary"
             android:padding="12dp"
             android:backgroundTint="@color/black" />
+
+        <Button
+            android:id="@+id/btnMic"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="🎤"
+            android:textSize="20sp"
+            android:layout_marginStart="4dp" />
 
         <Button
             android:id="@+id/btnSend"
@@ -44,7 +59,7 @@
             android:layout_height="wrap_content"
             android:text="Envoyer"
             android:textSize="16sp"
-            android:layout_marginStart="8dp" />
+            android:layout_marginStart="4dp" />
     </LinearLayout>
 
 </LinearLayout>
